@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Practice Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: same lined-paper week as the personal planner; sessions sit above tasks in each day, conflicts flagged inline */
+:root{
+  /* single dark look: soil brown-black paper, ochre accent, sage / terracotta / clay supporting tones */
+  --bg:#16110c; --paper:#1f1812; --ink:#ece0c9; --muted:#a8977a; --faint:#665844;
+  --line:#322819; --accent:#d2a54e; --accent-ink:#1c1408; --accent-soft:#382b15; --today-bg:#211a10;
+  --deadline:#cf7a4b; --deadline-soft:#36221a;
+  --event:#bba98a; --event-soft:#29211a;
+  --conflict:#d5634c; --conflict-soft:#3d1f19; --tight:#c58a48; --tight-soft:#352616;
+  --done:#97a86e;
+  --tag-blue:#283236; --tag-green:#2d3622; --tag-amber:#3d3117; --tag-rose:#432a20; --tag-violet:#382a2f;
+  --shadow:0 14px 44px rgba(0,0,0,.6);
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+button,select{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.title h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,3.4vw,38px);letter-spacing:-.02em;margin:0;line-height:1}
+.title p{margin:6px 0 0;color:var(--muted);font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 12px;font-weight:500}
+.btn:hover{border-color:var(--faint)}
+.btn.icon{width:36px;padding:7px 0;text-align:center}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.warn{background:var(--conflict);border-color:var(--conflict);color:#1d0b08}
+.btn.danger{color:var(--conflict)}
+.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap;background:transparent}
+.pill.ok{border-style:solid;color:var(--accent);border-color:var(--accent-soft);background:var(--accent-soft)}
+.pill.warn{border-style:solid;color:var(--deadline);border-color:var(--deadline-soft);background:var(--deadline-soft)}
+button.pill{cursor:pointer}
+select.pill{appearance:none;padding-right:22px;background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a8977a' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 8px center;border-style:solid}
+
+.strip{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:32px}
+.strip .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--deadline)}
+.strip .lbl.c{color:var(--conflict)}
+.dl{display:flex;gap:8px;align-items:baseline;background:var(--deadline-soft);border-radius:8px;padding:6px 10px;border:0;text-align:left;max-width:100%}
+.dl.c{background:var(--conflict-soft)}
+.dl b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:28ch}
+.dl span{color:var(--deadline);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl.c span{color:var(--conflict)}
+.strip .empty{color:var(--faint);font-size:13px}
+
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) minmax(0,1fr);gap:0 20px;align-items:start}
+.weekend{display:flex;flex-direction:column;gap:18px}
+.day{min-width:0}
+.day h3{display:flex;align-items:baseline;gap:6px;margin:0;padding:0 2px 8px;border-bottom:2px solid var(--muted);font-family:var(--f-display);font-weight:500}
+.day h3 .dow,.day h3 .num{font-size:15px}
+.day h3 .num{color:var(--muted);font-variant-numeric:tabular-nums}
+.day h3 .load{margin-left:auto;font-family:var(--f-body);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.day h3 .addsess{font-family:var(--f-body);font-size:11px;font-weight:600;border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:1px 6px;color:var(--accent)}
+.day h3 .addsess:hover{border-color:var(--accent)}
+.day.past h3{border-color:var(--faint);color:var(--muted)}
+.day.today h3{border-color:var(--accent);color:var(--accent);border-bottom-width:3px}
+.day.today h3 .num{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:0 6px;font-weight:700}
+.day.today ul.lines{background:var(--today-bg)}
+ul.lines{list-style:none;margin:0;padding:0;min-height:40px;border-radius:0 0 4px 4px}
+.day.drop ul.lines{background:var(--accent-soft)}
+li.row{min-height:34px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 4px}
+li.task,li.sess{cursor:grab;border-radius:4px}
+li.task:hover,li.sess:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}
+li.dragging{opacity:.35}
+li.task[data-color="blue"]{background:var(--tag-blue)} li.task[data-color="green"]{background:var(--tag-green)}
+li.task[data-color="amber"]{background:var(--tag-amber)} li.task[data-color="rose"]{background:var(--tag-rose)}
+li.task[data-color="violet"]{background:var(--tag-violet)}
+li.task.is-deadline:not([data-color]){background:var(--deadline-soft)}
+li.sess{border-left:4px solid var(--cc,var(--accent));padding-left:6px;min-height:40px}
+li.sess.conflict{background:var(--conflict-soft)}
+li.sess.tight{background:var(--tight-soft)}
+li.sess.cancelled .txt,li.sess.cancelled .t{text-decoration:line-through;color:var(--faint)}
+li.sess.noshow .txt{color:var(--muted)}
+.sess .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 0}
+.sess .body .txt{padding:0}
+.sess .badges{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.sess .badges:empty{display:none}
+.sess .t{flex:none;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1.15;width:5.2em}
+.sess .t small{display:block;font-weight:500;color:var(--muted)}
+.badge{flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:2px 5px;background:var(--line);color:var(--muted)}
+.badge.c{background:var(--conflict);color:#1d0b08}
+.badge.k{background:var(--tight);color:#1f1006}
+.badge.v{background:var(--accent-soft);color:var(--accent)}
+.check{flex:none;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--muted);background:transparent;padding:0;display:grid;place-items:center}
+.check:hover{border-color:var(--accent)}
+li.done .check,li.sess.completed .check{background:var(--done);border-color:var(--done)}
+li.done .check::after,li.sess.completed .check::after{content:"";width:7px;height:4px;border-left:2px solid var(--paper);border-bottom:2px solid var(--paper);transform:rotate(-45deg) translate(1px,-1px)}
+.txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:6px 0}
+li.done .txt{text-decoration:line-through;color:var(--muted)}
+.flag{flex:none;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--paper);background:var(--deadline);border-radius:4px;padding:2px 5px}
+.note-dot{flex:none;width:5px;height:5px;border-radius:50%;background:var(--muted)}
+.cal-dot{flex:none;width:7px;height:7px;border-radius:2px;background:var(--accent)}
+li.event{padding:0}
+li.event a{display:flex;align-items:center;gap:6px;width:100%;min-height:28px;margin:3px 0;padding:0 8px;border-radius:6px;background:var(--event-soft);color:var(--ink);text-decoration:none;font-size:12.5px;min-width:0}
+li.event a:hover{box-shadow:inset 0 0 0 1.5px var(--event)}
+li.event .t{font-variant-numeric:tabular-nums;color:var(--event);font-weight:700;flex:none}
+li.event .e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li.event.conflict a{box-shadow:inset 0 0 0 1.5px var(--conflict)}
+input.add{flex:1;min-width:0;border:0;background:transparent;font:inherit;color:var(--ink);padding:6px 0;outline:none}
+input.add::placeholder{color:transparent}
+li.addrow:hover input.add::placeholder,input.add:focus::placeholder{color:var(--faint)}
+li.blank{cursor:text}
+.someday{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 20px}
+.someday .day h3{border-color:var(--muted)}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+
+.overlay{position:fixed;inset:0;background:rgba(5,3,1,.62);display:grid;place-items:center;padding:16px;z-index:20}
+.sheet{background:var(--paper);border-radius:14px;box-shadow:var(--shadow);width:min(460px,100%);padding:20px;display:flex;flex-direction:column;gap:14px;max-height:calc(100% - 32px);overflow:auto}
+.sheet.wide{width:min(640px,100%)}
+.sheet h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:22px}
+.sheet input[type=text],.sheet input[type=number],.sheet textarea,.sheet input[type=date],.sheet input[type=time],.sheet select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.sheet #t-text{font-family:var(--f-display);font-size:18px;font-weight:500}
+.sheet textarea{min-height:90px;resize:vertical}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>span{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.inline{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.inline label{display:flex;gap:6px;align-items:center}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);padding:0}
+.sw[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--paper) inset}
+.sw[data-c=""]{background:var(--paper)} .sw[data-c=blue]{background:var(--tag-blue)} .sw[data-c=green]{background:var(--tag-green)}
+.sw[data-c=amber]{background:var(--tag-amber)} .sw[data-c=rose]{background:var(--tag-rose)} .sw[data-c=violet]{background:var(--tag-violet)}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.private{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin:0}
+.private::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--done);flex:none}
+.actions{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.warnbox{border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.warnbox.c{background:var(--conflict-soft);color:var(--ink)}
+.warnbox.k{background:var(--tight-soft)}
+.warnbox b{font-weight:700}
+.warnbox.c b{color:var(--conflict)} .warnbox.k b{color:var(--tight)}
+.warnbox ul{margin:0;padding-left:18px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-weight:600;padding:8px 14px;border-radius:8px;font-size:13px;z-index:30;max-width:calc(100% - 32px)}
+
+/* clients */
+.clist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.clist li{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
+.clist li:hover{background:var(--bg)}
+.clist .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--cc,var(--accent))}
+.clist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.clist .meta{font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.clist li.archived .nm{color:var(--muted);font-weight:500}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:240px;overflow:auto}
+.hist li{display:grid;grid-template-columns:7.5em 4.5em 1fr;gap:8px;padding:6px;border-radius:6px;cursor:pointer;font-size:13px;font-variant-numeric:tabular-nums}
+.hist li:hover{background:var(--bg)}
+.hist .st{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.hist .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+
+@media (max-width:1100px){
+  .board{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px}
+  .weekend{display:contents}
+  .someday{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:620px){
+  .board,.someday{grid-template-columns:minmax(0,1fr)}
+  li.task,li.sess{cursor:default}
+}
+.setup summary{cursor:pointer;font-weight:600}
+.setup ol{padding-left:20px;display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.setup code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 4px;word-break:break-all}
+.setup a{color:var(--accent)}
+#s-client{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1 id="month">Practice Planner</h1>
+      <p id="weekLabel"></p>
+    </div>
+    <div class="nav">
+      <div class="status">
+        <span id="gSlot"></span>
+        <button class="pill" id="clientsBtn" type="button">Clients</button>
+        <button class="pill" id="settingsBtn" type="button">Settings</button>
+      </div>
+      <button class="btn icon" id="prev" aria-label="Previous week">‹</button>
+      <button class="btn primary" id="todayBtn">Today</button>
+      <button class="btn icon" id="next" aria-label="Next week">›</button>
+    </div>
+  </header>
+
+  <div class="strip" id="conflictStrip" hidden></div>
+  <div class="strip" id="deadlines"></div>
+  <main class="board" id="board"></main>
+  <section class="someday" id="someday"></section>
+  <p class="hint">Press <b>+ Session</b> on a day to book a client. Sessions that overlap each other or a Google Calendar event are marked <b>Conflict</b>; sessions closer together than your buffer are marked <b>Tight</b>. Click a line to add a task and press Enter; start it with <b>!</b> to make it a deadline. Drag sessions or tasks to another day. Client names and notes stay in this browser and are never sent to Google; Google Calendar only gets the label you choose in Settings. Use Settings → Export backup regularly.</p>
+</div>
+
+<!-- session editor -->
+<div class="overlay" id="sessOv" hidden>
+  <form class="sheet" id="sessForm" autocomplete="off">
+    <h2 id="s-title">New session</h2>
+    <div class="field"><span>Client</span>
+      <select id="s-client-sel"></select>
+      <input type="text" id="s-newclient" placeholder="New client's name" hidden>
+    </div>
+    <div class="grid2">
+      <div class="field"><span>Date</span><input type="date" id="s-date" required></div>
+      <div class="field"><span>Start</span><input type="time" id="s-start" step="300" required></div>
+      <div class="field"><span>Length (min)</span><input type="number" id="s-dur" min="5" max="480" step="5" required></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><span>Format</span>
+        <select id="s-type"><option value="in-person">In person</option><option value="telehealth">Telehealth</option></select></div>
+      <div class="field"><span>Status</span>
+        <select id="s-status"><option value="scheduled">Scheduled</option><option value="completed">Completed</option><option value="noshow">No-show</option><option value="late">Late cancel</option><option value="cancelled">Cancelled</option></select></div>
+    </div>
+    <div class="field" id="s-repeat-wrap"><span>Repeat</span>
+      <div class="inline">
+        <label><input type="checkbox" id="s-repeat"> Weekly for</label>
+        <input type="number" id="s-weeks" min="2" max="52" value="8" style="width:5.5em">
+        <span class="note">weeks</span>
+      </div>
+    </div>
+    <div class="field"><span>Session notes</span>
+      <textarea id="s-notes" placeholder="Notes for this session"></textarea>
+      <p class="private">Stays in this browser. Never sent to Google.</p>
+    </div>
+    <div id="s-warn"></div>
+    <p class="note" id="s-gnote"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="s-delete">Delete</button>
+      <div class="inline" style="gap:8px">
+        <button type="button" class="btn" id="s-cancel">Cancel</button>
+        <button type="submit" class="btn primary" id="s-save">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- task editor -->
+<div class="overlay" id="taskOv" hidden>
+  <form class="sheet" id="taskForm" autocomplete="off">
+    <input type="text" id="t-text" aria-label="Task">
+    <div class="field"><span>Date</span>
+      <div class="inline">
+        <input type="date" id="t-date" style="flex:1;min-width:150px">
+        <label><input type="checkbox" id="t-someday"> No date</label>
+      </div>
+    </div>
+    <div class="field"><span>Type</span>
+      <div class="inline"><label><input type="checkbox" id="t-deadline"> This is a deadline</label></div>
+    </div>
+    <div class="field"><span>Color</span>
+      <div class="swatches" id="t-swatches">
+        <button type="button" class="sw" data-c="" aria-label="No color"></button>
+        <button type="button" class="sw" data-c="blue" aria-label="Slate"></button>
+        <button type="button" class="sw" data-c="green" aria-label="Sage"></button>
+        <button type="button" class="sw" data-c="amber" aria-label="Ochre"></button>
+        <button type="button" class="sw" data-c="rose" aria-label="Terracotta"></button>
+        <button type="button" class="sw" data-c="violet" aria-label="Mauve"></button>
+      </div>
+    </div>
+    <div class="field"><span>Notes</span><textarea id="t-notes"></textarea><p class="private">Stays in this browser. Never sent to Google.</p></div>
+    <p class="note" id="t-gnote"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="t-delete">Delete</button>
+      <div class="inline" style="gap:8px">
+        <button type="button" class="btn" id="t-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- clients -->
+<div class="overlay" id="clientsOv" hidden>
+  <div class="sheet wide">
+    <div id="c-listview" style="display:flex;flex-direction:column;gap:14px">
+      <div class="actions" style="align-items:center"><h2>Clients</h2><button type="button" class="btn primary" id="c-add">Add client</button></div>
+      <div class="inline" style="gap:10px">
+        <input type="text" id="c-search" placeholder="Search" style="flex:1;min-width:160px">
+        <label class="note"><input type="checkbox" id="c-showarch"> Show archived</label>
+      </div>
+      <ul class="clist" id="c-list"></ul>
+      <div class="actions" style="justify-content:flex-end"><button type="button" class="btn" id="c-close">Done</button></div>
+    </div>
+    <form id="c-detail" hidden style="display:flex;flex-direction:column;gap:14px" autocomplete="off">
+      <h2 id="c-title">Client</h2>
+      <div class="grid2">
+        <div class="field" style="grid-column:span 2"><span>Name</span><input type="text" id="c-name" required></div>
+        <div class="field"><span>Initials</span><input type="text" id="c-initials" maxlength="8"></div>
+        <div class="field"><span>Code (optional)</span><input type="text" id="c-code" maxlength="16" placeholder="e.g. C-014"></div>
+        <div class="field"><span>Usual length (min)</span><input type="number" id="c-dur" min="5" max="480" step="5"></div>
+      </div>
+      <div class="field"><span>Color</span>
+        <div class="swatches" id="c-swatches">
+          <button type="button" class="sw" data-c="" aria-label="No color"></button>
+          <button type="button" class="sw" data-c="blue" aria-label="Slate"></button>
+          <button type="button" class="sw" data-c="green" aria-label="Sage"></button>
+          <button type="button" class="sw" data-c="amber" aria-label="Ochre"></button>
+          <button type="button" class="sw" data-c="rose" aria-label="Terracotta"></button>
+          <button type="button" class="sw" data-c="violet" aria-label="Mauve"></button>
+        </div>
+      </div>
+      <div class="field"><span>Client notes</span>
+        <textarea id="c-notes" placeholder="Background, goals, contact preferences…" style="min-height:120px"></textarea>
+        <p class="private">Stays in this browser. Never sent to Google.</p>
+      </div>
+      <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="c-archived"> Archived (no longer seeing this client)</label>
+      <div class="field"><span id="c-histlbl">Sessions</span><ul class="hist" id="c-hist"></ul></div>
+      <div class="actions">
+        <button type="button" class="btn danger" id="c-delete">Delete client</button>
+        <div class="inline" style="gap:8px">
+          <button type="button" class="btn" id="c-back">Back</button>
+          <button type="button" class="btn" id="c-book">Book session</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="overlay" id="settingsOv" hidden>
+  <div class="sheet wide">
+    <h2>Settings</h2>
+    <div class="grid2">
+      <div class="field"><span>Default session (min)</span><input type="number" id="o-dur" min="5" max="480" step="5"></div>
+      <div class="field"><span>Buffer between sessions (min)</span><input type="number" id="o-buffer" min="0" max="120" step="5"></div>
+    </div>
+    <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="o-privacy"> Show initials instead of names on this screen</label>
+
+    <div class="field"><span>Google connection</span>
+      <p class="note">Paste the OAuth Client ID from your Google Cloud project (setup steps below), then connect. The planner reads your main Google Calendar to check for conflicts, and puts sessions and tasks on a separate calendar called “Practice,” which it creates for you.</p>
+      <input type="text" id="s-client" placeholder="1234567890-abc123.apps.googleusercontent.com" spellcheck="false">
+      <div class="inline" style="gap:8px">
+        <button type="button" class="btn primary" id="o-connect">Connect Google</button>
+        <button type="button" class="btn" id="o-disconnect">Disconnect</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><span>Send to the “Practice” calendar</span>
+        <select id="o-sync"><option value="all">Sessions + tasks</option><option value="sessions">Sessions only</option><option value="off">Nothing</option></select></div>
+      <div class="field"><span>Session label in Google</span>
+        <select id="o-label"><option value="initials">Initials (Session · J.D.)</option><option value="code">Client code (Session · C-014)</option><option value="generic">No client info (Session)</option></select></div>
+    </div>
+    <p class="note">Only the label, time and format (in person or telehealth) go to Google. Names, notes and session status stay here. A personal Google account isn’t covered by a HIPAA business associate agreement, so keep identifying details out of Google Calendar.</p>
+
+    <div class="field"><span>Backup</span>
+      <p class="note">Everything is saved in this browser only. The backup file contains client names and notes, so store it somewhere secure.</p>
+      <div class="inline" style="gap:8px">
+        <button type="button" class="btn" id="o-export">Export backup</button>
+        <label class="btn" for="o-import" style="cursor:pointer">Import backup</label>
+        <input type="file" id="o-import" accept="application/json,.json" hidden>
+      </div>
+    </div>
+
+    <details class="setup">
+      <summary>One-time Google setup (about 10 minutes)</summary>
+      <ol>
+        <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> and create a project (any name, e.g. "Practice Planner").</li>
+        <li>Open <b>APIs &amp; Services → Library</b> and enable <b>Google Calendar API</b>.</li>
+        <li>Open <b>Google Auth Platform</b> (or <b>OAuth consent screen</b>), choose <b>External</b>, fill in the app name and your email. Under <b>Audience → Test users</b>, add your own Gmail address.</li>
+        <li>Open <b>Clients</b> (or <b>Credentials</b>) → <b>Create client</b> → type <b>Web application</b>. Under <b>Authorized JavaScript origins</b>, add the address this page runs from: <code id="originHint"></code></li>
+        <li>Copy the <b>Client ID</b>, paste it above, and press <b>Connect Google</b>. Google will warn that the app isn't verified; choose <b>Continue</b>, since it's your own app, and allow access to your calendars.</li>
+      </ol>
+      <p class="note">Google sign-in doesn't work when the file is opened by double-clicking (a <code>file://</code> address). Host it on GitHub Pages or run a local server.</p>
+    </details>
+    <div class="actions" style="justify-content:flex-end"><button type="button" class="btn primary" id="o-close">Done</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const keyOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d);};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const mondayOf=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());return addDays(x,-((x.getDay()+6)%7));};
+const isDated=k=>/^\d{4}-\d{2}-\d{2}$/.test(k||'');
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y0)/864e5+1)/7);}
+const toMin=t=>{const [h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+const fromMin=m=>`${pad(Math.floor(m/60)%24)}:${pad(m%60)}`;
+function t12(m){let h=Math.floor(m/60)%24;const mm=m%60;const ap=h>=12?'pm':'am';h=h%12||12;return mm?`${h}:${pad(mm)}${ap}`:`${h}${ap}`;}
+const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SOMEDAY=[['someday','To do'],['admin','Admin & billing'],['reading','Clinical reading']];
+const STATUS={scheduled:'Scheduled',completed:'Completed',noshow:'No-show',late:'Late cancel',cancelled:'Cancelled'};
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const MARK='Added from Practice Planner · id:';
+const SCOPES='https://www.googleapis.com/auth/calendar';
+const CAL_NAME='Practice';
+const COLOR_ID={blue:'9',green:'10',amber:'5',rose:'4',violet:'3'};
+const COLOR_CSS={blue:'#8a9fa6',green:'#97a86e',amber:'#d2a54e',rose:'#c97b58',violet:'#a68a96'};
+const P='practice.';
+const ls={get(k,d){try{const v=localStorage.getItem(P+k);return v==null?d:v;}catch(e){return d;}},set(k,v){try{localStorage.setItem(P+k,v);}catch(e){}}};
+
+let weekStart=mondayOf(new Date());
+let events={};             // dateKey -> [{title,link,time,s,e,allDay}]
+const dayCache={};          // dateKey -> events, for days outside the visible week (editor checks)
+let opt={
+  sync:ls.get('sync','all'), label:ls.get('label','initials'),
+  dur:+ls.get('dur','50')||50, buffer:+ls.get('buffer','10'), privacy:ls.get('privacy','')==='1'
+};
+function saveOpt(){for(const k in opt)ls.set(k,typeof opt[k]==='boolean'?(opt[k]?'1':''):String(opt[k]));}
+
+/* ---------- storage (this browser) ---------- */
+const db={
+  tasks:new Map(),appts:new Map(),clients:new Map(),
+  load(){for(const k of ['tasks','appts','clients']){try{this[k]=new Map(JSON.parse(ls.get(k,'[]')).map(x=>[x.id,x]));}catch(e){this[k]=new Map();}}},
+  save(k){ls.set(k,JSON.stringify([...this[k].values()]));},
+  put(k,x,quiet){this[k].set(x.id,x);this.save(k);if(!quiet)render();},
+  remove(k,id){this[k].delete(id);this.save(k);render();}
+};
+window.addEventListener('storage',e=>{if(e.key&&e.key.startsWith(P)){db.load();render();}});
+const tasksFor=k=>[...db.tasks.values()].filter(t=>t.date===k).sort((a,b)=>(a.order??0)-(b.order??0)||(a.created??0)-(b.created??0));
+const apptsFor=k=>[...db.appts.values()].filter(a=>a.date===k).sort((a,b)=>toMin(a.start)-toMin(b.start));
+const endMin=a=>toMin(a.start)+(+a.dur||0);
+const active=a=>a.status!=='cancelled';
+function initialsOf(name){return (name||'').trim().split(/\s+/).filter(Boolean).map(w=>w[0].toUpperCase()+'.').join('');}
+function clientOf(a){return db.clients.get(a.clientId);}
+function screenName(c){if(!c)return 'Unknown client';return opt.privacy?(c.initials||initialsOf(c.name)):c.name;}
+
+/* ---------- conflicts ---------- */
+function eventsOn(k){return events[k]||dayCache[k]||[];}
+// returns [{level:'conflict'|'tight', what, when}] for a would-be session
+function conflictsFor(date,start,dur,ignore){
+  const s=toMin(start),e=s+(+dur||0),out=[];
+  const check=(os,oe,what)=>{
+    if(s<oe&&os<e) out.push({level:'conflict',what,when:`${t12(os)}–${t12(oe)}`});
+    else{const gap=s>=oe?s-oe:os-e;if(gap<opt.buffer)out.push({level:'tight',what,when:`${t12(os)}–${t12(oe)}`,gap});}
+  };
+  apptsFor(date).filter(a=>active(a)&&!(ignore||[]).includes(a.id)).forEach(a=>check(toMin(a.start),endMin(a),'Session with '+screenName(clientOf(a))));
+  eventsOn(date).filter(ev=>!ev.allDay).forEach(ev=>check(ev.s,ev.e,ev.title));
+  return out;
+}
+function dayConflictMap(k){
+  const m={};
+  apptsFor(k).filter(active).forEach(a=>{
+    const c=conflictsFor(k,a.start,a.dur,[a.id]);
+    m[a.id]=c.some(x=>x.level==='conflict')?'conflict':(c.length?'tight':'');
+  });
+  return m;
+}
+function eventConflicts(k){
+  const as=apptsFor(k).filter(active);
+  return new Set(eventsOn(k).filter(ev=>!ev.allDay&&as.some(a=>toMin(a.start)<ev.e&&ev.s<endMin(a))).map(ev=>ev.id));
+}
+
+/* ---------- Google auth (renews quietly before the hour runs out) ---------- */
+const G={client:null,token:null,exp:0,state:'off',refreshing:false,timer:null};
+const pendingCount=()=>[...db.tasks.values(),...db.appts.values()].filter(x=>x.gPending).length;
+function clientId(){return ls.get('clientId','').trim();}
+function setG(state,msg){
+  G.state=state;
+  const slot=$('#gSlot');slot.replaceChildren();
+  const el=document.createElement(state==='ok'||state==='busy'?'span':'button');
+  el.className='pill'+(state==='ok'?' ok':(state==='off'||state==='setup'?'':' warn'));
+  el.textContent={ok:'Google linked',busy:'Connecting to Google…',off:'Connect Google',expired:'Reconnect Google',error:'Google error · Retry',setup:'Set up Google'}[state]||'Connect Google';
+  const waiting=pendingCount();
+  if(waiting&&state!=='ok'&&state!=='busy'&&ls.get('gConnected','')) el.textContent+=` · ${waiting} change${waiting>1?'s':''} waiting`;
+  if(el.tagName==='BUTTON'){el.type='button';el.onclick=()=>clientId()?connect(true):openSettings();}
+  if(msg) el.title=msg;
+  slot.append(el);
+}
+function idleState(){return !clientId()?'setup':(ls.get('gConnected','')?'expired':'off');}
+function initClient(){
+  const id=clientId();
+  if(!id||!(window.google&&google.accounts&&google.accounts.oauth2)) return false;
+  if(G.client&&G.client._id===id) return true;
+  G.client=google.accounts.oauth2.initTokenClient({client_id:id,scope:SCOPES,callback:onToken,error_callback:onTokenError});
+  G.client._id=id;return true;
+}
+function onToken(r){
+  if(r&&r.access_token){
+    G.token=r.access_token;G.exp=Date.now()+((r.expires_in||3600)-60)*1000;G.refreshing=false;
+    clearTimeout(G.timer);G.timer=setTimeout(refreshToken,Math.max(60e3,G.exp-Date.now()-5*60e3));
+    ls.set('gConnected','1');setG('ok');
+    loadEvents();flushPending();
+  }else onTokenError(r);
+}
+function onTokenError(err){
+  G.token=null;G.refreshing=false;
+  setG(idleState(),(err&&(err.error_description||err.message||err.type||err.error))||'Sign-in was cancelled');
+}
+function connect(interactive){
+  if(location.protocol==='file:'){toast('Google sign-in needs the page served from a web address, not opened as a file. See the setup notes.');openSettings();return;}
+  if(!clientId()){openSettings();return;}
+  if(!initClient()){toast('Google sign-in is still loading. Try again in a moment.');return;}
+  setG('busy');G.client.requestAccessToken({prompt:interactive?'':'none'});
+}
+const hasToken=()=>!!G.token&&Date.now()<G.exp;
+function refreshToken(){
+  if(hasToken()||G.refreshing||!clientId()||!ls.get('gConnected','')||location.protocol==='file:'||!initClient()) return;
+  G.refreshing=true;G.token=null;
+  try{G.client.requestAccessToken({prompt:'none'});}catch(e){G.refreshing=false;setG('expired');}
+}
+async function gapi(method,url,body){
+  if(!hasToken()) throw Object.assign(new Error('not connected'),{code:'auth'});
+  const r=await fetch(url,{method,headers:{Authorization:'Bearer '+G.token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){G.token=null;setG('expired');refreshToken();throw Object.assign(new Error('expired'),{code:'auth'});}
+  if(r.status===204) return null;
+  if(!r.ok){let t='';try{t=(await r.json()).error.message;}catch(_){}throw Object.assign(new Error(t||('HTTP '+r.status)),{code:r.status});}
+  return r.json();
+}
+
+/* ---------- read Google Calendar (main calendar) ---------- */
+const CALAPI='https://www.googleapis.com/calendar/v3';
+function parseEvents(items){
+  const next={};const mine=ls.get('calId','');
+  for(const ev of items||[]){
+    if(ev.status==='cancelled'||(ev.description||'').includes(MARK)) continue;
+    if((ev.attendees||[]).some(a=>a.self&&a.responseStatus==='declined')) continue;
+    const base={id:ev.id,title:ev.summary||'(No title)',link:ev.htmlLink||'',busy:ev.transparency!=='transparent'};
+    const s=ev.start||{},en=ev.end||{};
+    if(s.dateTime){
+      const sd=new Date(s.dateTime),ed=new Date(en.dateTime||s.dateTime);
+      for(let d=new Date(sd.getFullYear(),sd.getMonth(),sd.getDate()),i=0;d<ed&&i<14;d=addDays(d,1),i++){
+        const k=keyOf(d),dayStart=d.getTime(),dayEnd=addDays(d,1).getTime();
+        const a=Math.max(sd.getTime(),dayStart),b=Math.min(ed.getTime(),dayEnd);
+        if(b<=a&&i>0) continue;
+        const sm=Math.round((a-dayStart)/6e4),em=Math.max(sm,Math.round((b-dayStart)/6e4));
+        (next[k]=next[k]||[]).push({...base,allDay:false,s:sm,e:em,time:t12(sm)});
+      }
+    }else if(s.date){
+      let d=parseKey(s.date);const end=en.date?parseKey(en.date):addDays(d,1);
+      for(let i=0;d<end&&i<60;i++,d=addDays(d,1)) (next[keyOf(d)]=next[keyOf(d)]||[]).push({...base,allDay:true,s:0,e:0,time:''});
+    }
+  }
+  for(const k in next) next[k]=next[k].filter(ev=>ev.allDay||ev.busy).sort((a,b)=>a.s-b.s);
+  return next;
+}
+let loadSeq=0;
+async function loadEvents(){
+  if(!hasToken()) return;
+  const seq=++loadSeq;
+  const q=new URLSearchParams({timeMin:weekStart.toISOString(),timeMax:addDays(weekStart,7).toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250'});
+  try{
+    const p=await gapi('GET',CALAPI+'/calendars/primary/events?'+q);
+    if(seq!==loadSeq) return;
+    events=parseEvents(p&&p.items);render();
+  }catch(e){if(e.code!=='auth'){console.warn(e);setG('error',e.message);}}
+}
+async function loadRange(fromKey,toKey){  // for checking repeats and dates outside this week
+  if(!hasToken()) return;
+  const q=new URLSearchParams({timeMin:parseKey(fromKey).toISOString(),timeMax:addDays(parseKey(toKey),1).toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'2500'});
+  try{const p=await gapi('GET',CALAPI+'/calendars/primary/events?'+q);const got=parseEvents(p&&p.items);
+    for(let d=parseKey(fromKey);d<=parseKey(toKey);d=addDays(d,1)){const k=keyOf(d);dayCache[k]=got[k]||[];}
+  }catch(e){console.warn(e);}
+}
+
+/* ---------- send to the "Practice" calendar ---------- */
+const syncQ=new Map();let calIdPromise=null;
+const TZ=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'America/Chicago';}catch(_){return 'America/Chicago';}})();
+function wantsSync(kind,x){
+  if(!x||!isDated(x.date)||opt.sync==='off') return false;
+  if(kind==='appts') return x.status!=='cancelled'&&x.status!=='late';
+  return opt.sync==='all'&&!x.done;
+}
+function sessionLabel(a){
+  const c=clientOf(a);
+  let who='';
+  if(opt.label==='initials'&&c) who=c.initials||initialsOf(c.name);
+  else if(opt.label==='code'&&c&&c.code) who=c.code;
+  return 'Session'+(who?' · '+who:'')+(a.type==='telehealth'?' (telehealth)':'');
+}
+function localISO(dateKey,min){const d=parseKey(dateKey);d.setMinutes(min);return `${keyOf(d)}T${fromMin(min%1440)}:00`;}
+function evBody(kind,x){
+  if(kind==='appts'){
+    const c=clientOf(x);const s=toMin(x.start);
+    return {summary:sessionLabel(x),description:MARK+x.id,
+      start:{dateTime:localISO(x.date,s),timeZone:TZ},end:{dateTime:localISO(x.date,s+(+x.dur||50)),timeZone:TZ},
+      transparency:'opaque',colorId:(c&&COLOR_ID[c.color])||null,
+      reminders:{useDefault:false,overrides:[{method:'popup',minutes:10}]}};
+  }
+  return {summary:(x.deadline?'Due: ':'')+x.text,description:MARK+x.id,
+    start:{date:x.date},end:{date:keyOf(addDays(parseKey(x.date),1))},transparency:'transparent',
+    colorId:x.deadline?'11':(COLOR_ID[x.color]||null),
+    reminders:{useDefault:false,overrides:x.deadline?[{method:'popup',minutes:15*60}]:[]}};
+}
+function ensureCal(){
+  if(calIdPromise) return calIdPromise;
+  calIdPromise=(async()=>{
+    const saved=ls.get('calId','');
+    if(saved){try{await gapi('GET',CALAPI+'/calendars/'+encodeURIComponent(saved));return saved;}catch(e){if(e.code!==404&&e.code!==403)throw e;}}
+    let pageToken='';
+    do{
+      const p=await gapi('GET',CALAPI+'/users/me/calendarList?minAccessRole=owner&maxResults=250'+(pageToken?'&pageToken='+encodeURIComponent(pageToken):''));
+      const hit=((p&&p.items)||[]).find(c=>c.summary===CAL_NAME);
+      if(hit){ls.set('calId',hit.id);return hit.id;}
+      pageToken=p&&p.nextPageToken;
+    }while(pageToken);
+    const c=await gapi('POST',CALAPI+'/calendars',{summary:CAL_NAME,description:'Sessions and tasks from Practice Planner',timeZone:TZ});
+    ls.set('calId',c.id);toast('Created the “Practice” calendar');return c.id;
+  })();
+  calIdPromise.catch(()=>{calIdPromise=null;});
+  return calIdPromise;
+}
+const evURL=(calId,eid)=>CALAPI+'/calendars/'+encodeURIComponent(calId)+'/events'+(eid?'/'+encodeURIComponent(eid):'');
+function sync(kind,id){
+  const x=db[kind].get(id);if(!x)return;
+  if(!hasToken()){
+    if(wantsSync(kind,x)||x.gEventId){db.put(kind,{...x,gPending:true},true);setG(G.refreshing?'busy':idleState());}
+    refreshToken();return;
+  }
+  const key=kind+':'+id;
+  const next=(syncQ.get(key)||Promise.resolve()).then(()=>doSync(kind,id)).catch(e=>{
+    console.warn(e);const cur=db[kind].get(id);if(cur)db.put(kind,{...cur,gPending:true},true);
+    if(e.code!=='auth')toast('Couldn’t update Google Calendar: '+e.message);else setG(G.state);
+  });
+  syncQ.set(key,next);
+}
+async function doSync(kind,id,retry){
+  const x=db[kind].get(id);if(!x)return;
+  const want=wantsSync(kind,x);
+  const save=(extra,drop)=>{const cur=db[kind].get(id);if(!cur)return;const c={...cur,...extra};delete c.gPending;(drop||[]).forEach(k=>delete c[k]);db.put(kind,c,true);};
+  if(!want&&!x.gEventId){save({});return;}
+  const calId=await ensureCal();
+  try{
+    if(want&&!x.gEventId){const r=await gapi('POST',evURL(calId),evBody(kind,x));save({gEventId:r.id,gCalId:calId});render();}
+    else if(want){
+      try{await gapi('PATCH',evURL(x.gCalId||calId,x.gEventId),evBody(kind,x));save({});}
+      catch(e){if(e.code===404||e.code===410){const r=await gapi('POST',evURL(calId),evBody(kind,x));save({gEventId:r.id,gCalId:calId});}else throw e;}
+    }else{
+      try{await gapi('DELETE',evURL(x.gCalId||calId,x.gEventId));}catch(e){if(e.code!==404&&e.code!==410)throw e;}
+      save({},['gEventId','gCalId']);render();
+    }
+  }catch(e){
+    if((e.code===404||e.code===403)&&!retry){ls.set('calId','');calIdPromise=null;
+      const cur=db[kind].get(id);if(cur){const c={...cur};delete c.gEventId;delete c.gCalId;db.put(kind,c,true);}
+      return doSync(kind,id,true);}
+    throw e;
+  }
+}
+function unsync(x){
+  if(!x.gEventId) return;
+  const calId=x.gCalId||ls.get('calId','');if(!calId)return;
+  if(!hasToken()){const q=JSON.parse(ls.get('gDeletes','[]'));q.push([calId,x.gEventId]);ls.set('gDeletes',JSON.stringify(q));refreshToken();return;}
+  gapi('DELETE',evURL(calId,x.gEventId)).catch(e=>{if(e.code!==404&&e.code!==410)toast('Deleted here, but not from Google Calendar.');});
+}
+function flushPending(){
+  let q=[];try{q=JSON.parse(ls.get('gDeletes','[]'));}catch(_){}
+  ls.set('gDeletes','[]');
+  q.forEach(([c,e])=>gapi('DELETE',evURL(c,e)).catch(()=>{}));
+  const today=keyOf(new Date());
+  for(const kind of ['appts','tasks'])
+    [...db[kind].values()].filter(x=>x.gPending||(wantsSync(kind,x)&&!x.gEventId&&x.date>=today)||(!wantsSync(kind,x)&&x.gEventId)).forEach(x=>sync(kind,x.id));
+}
+function resyncAll(){
+  const today=keyOf(new Date());let n=0;
+  for(const kind of ['appts','tasks'])
+    [...db[kind].values()].filter(x=>isDated(x.date)&&(x.date>=today||x.gEventId)).forEach(x=>{if(wantsSync(kind,x)||x.gEventId){sync(kind,x.id);n++;}});
+  return n;
+}
+
+/* ---------- render ---------- */
+function listSection(key,dow,num,cls,minRows,dated){
+  const sec=document.createElement('section');
+  sec.className='day '+(cls||'');sec.dataset.key=key;
+  sec.innerHTML=`<h3><span class="dow"></span><span class="num"></span>${dated?'<span class="load"></span><button type="button" class="addsess">+ Session</button>':''}</h3><ul class="lines"></ul>`;
+  sec.querySelector('.dow').textContent=dow;sec.querySelector('.num').textContent=num||'';
+  const ul=sec.querySelector('ul');
+  let rows=0;
+  if(dated){
+    const as=apptsFor(key),cmap=dayConflictMap(key),evC=eventConflicts(key);
+    const n=as.filter(a=>active(a)&&a.status!=='late').length;
+    if(n) sec.querySelector('.load').textContent=`${n} session${n>1?'s':''}`;
+    // merge sessions and timed events by start time; all-day events first
+    const evs=eventsOn(key);
+    const items=[...evs.filter(e=>e.allDay).map(e=>({k:'e',o:-1,e})),...evs.filter(e=>!e.allDay).map(e=>({k:'e',o:e.s,e})),...as.map(a=>({k:'a',o:toMin(a.start),a}))].sort((x,y)=>x.o-y.o);
+    items.forEach(it=>{
+      const li=document.createElement('li');
+      if(it.k==='e'){
+        li.className='row event'+(evC.has(it.e.id)?' conflict':'');
+        const a=document.createElement('a');if(it.e.link){a.href=it.e.link;a.target='_blank';a.rel='noopener';}
+        a.innerHTML='<span class="t"></span><span class="e"></span>';
+        a.querySelector('.t').textContent=it.e.allDay?'All day':`${t12(it.e.s)}`;a.querySelector('.e').textContent=it.e.title;a.title=it.e.title;
+        li.append(a);
+      }else{
+        const ap=it.a,c=clientOf(ap),lvl=cmap[ap.id]||'';
+        li.className=`row sess ${ap.status||'scheduled'}`+(lvl?' '+lvl:'');li.dataset.id=ap.id;li.dataset.kind='appts';li.draggable=true;
+        if(c&&COLOR_CSS[c.color]) li.style.setProperty('--cc',COLOR_CSS[c.color]);
+        li.innerHTML='<span class="t"></span><span class="body"><span class="txt"></span><span class="badges"></span></span>';
+        li.querySelector('.t').innerHTML=`${t12(toMin(ap.start))}<small>${ap.dur} min</small>`;
+        li.querySelector('.txt').textContent=screenName(c);
+        const bg=li.querySelector('.badges');
+        const badge=(cls,txt)=>{const b=document.createElement('span');b.className='badge '+cls;b.textContent=txt;bg.append(b);};
+        if(lvl==='conflict') badge('c','Conflict'); else if(lvl==='tight') badge('k','Tight');
+        if(ap.type==='telehealth') badge('v','Video');
+        if(ap.status&&ap.status!=='scheduled'&&ap.status!=='completed') badge('',STATUS[ap.status]);
+        if(ap.notes){const d=document.createElement('span');d.className='note-dot';d.title='Has notes';li.append(d);}
+        if(ap.gEventId){const d=document.createElement('span');d.className='cal-dot';d.title='In Google Calendar';li.append(d);}
+        const chk=document.createElement('button');chk.className='check';chk.type='button';chk.setAttribute('aria-label','Mark session completed');li.prepend(chk);
+        li.title=`${t12(toMin(ap.start))}–${t12(endMin(ap))} · ${STATUS[ap.status]||'Scheduled'}`;
+      }
+      ul.append(li);rows++;
+    });
+  }
+  tasksFor(key).forEach(t=>{
+    const li=document.createElement('li');
+    li.className='row task'+(t.done?' done':'')+(t.deadline?' is-deadline':'');li.dataset.id=t.id;li.dataset.kind='tasks';li.draggable=true;
+    if(t.color) li.dataset.color=t.color;
+    li.innerHTML='<button class="check" type="button" aria-label="Toggle done"></button><span class="txt"></span>';
+    li.querySelector('.txt').textContent=t.text;
+    if(t.notes){const d=document.createElement('span');d.className='note-dot';d.title='Has notes';li.append(d);}
+    if(t.gEventId){const d=document.createElement('span');d.className='cal-dot';d.title='In Google Calendar';li.append(d);}
+    if(t.deadline){const f=document.createElement('span');f.className='flag';f.textContent='Due';li.append(f);}
+    ul.append(li);rows++;
+  });
+  const add=document.createElement('li');add.className='row addrow';
+  add.innerHTML=`<input class="add" id="add-${key}" data-key="${key}" placeholder="Add a task" aria-label="Add a task">`;
+  ul.append(add);
+  for(let i=rows+1;i<minRows;i++){const b=document.createElement('li');b.className='row blank';ul.append(b);}
+  return sec;
+}
+function render(){
+  const ae=document.activeElement;let keep=null;
+  if(ae&&ae.classList&&ae.classList.contains('add')) keep={k:ae.dataset.key,v:ae.value,s:ae.selectionStart};
+  const todayKey=keyOf(new Date()),end=addDays(weekStart,6);
+  $('#month').textContent=weekStart.getMonth()===end.getMonth()?`${MON[weekStart.getMonth()]} ${weekStart.getFullYear()}`:`${MON[weekStart.getMonth()].slice(0,3)} – ${MON[end.getMonth()].slice(0,3)} ${end.getFullYear()}`;
+  let n=0,mins=0;
+  for(let i=0;i<7;i++) apptsFor(keyOf(addDays(weekStart,i))).filter(a=>active(a)&&a.status!=='late').forEach(a=>{n++;mins+=+a.dur||0;});
+  $('#weekLabel').textContent=`Week ${isoWeek(weekStart)} · ${weekStart.getDate()} ${MON[weekStart.getMonth()].slice(0,3)} – ${end.getDate()} ${MON[end.getMonth()].slice(0,3)}`+(n?` · ${n} session${n>1?'s':''}, ${+(mins/60).toFixed(1)} h`:'');
+  const board=$('#board');board.replaceChildren();
+  const weekend=document.createElement('div');weekend.className='weekend';
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i),k=keyOf(d);
+    (i<5?board:weekend).append(listSection(k,DOW[i],d.getDate(),k===todayKey?'today':(k<todayKey?'past':''),i<5?10:4,true));
+  }
+  board.append(weekend);
+  const sd=$('#someday');sd.replaceChildren();
+  SOMEDAY.forEach(([k,label])=>sd.append(listSection(k,label,'','',5,false)));
+  renderStrips();
+  if(keep){const el=document.getElementById('add-'+keep.k);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
+}
+function renderStrips(){
+  // upcoming conflicts (next 14 days)
+  const cs=$('#conflictStrip');cs.replaceChildren();
+  const today=parseKey(keyOf(new Date()));const found=[];
+  for(let i=0;i<14&&found.length<6;i++){
+    const k=keyOf(addDays(today,i));const m=dayConflictMap(k);
+    apptsFor(k).filter(a=>m[a.id]==='conflict').forEach(a=>found.push(a));
+  }
+  cs.hidden=!found.length;
+  if(found.length){
+    const l=document.createElement('span');l.className='lbl c';l.textContent='Conflicts';cs.append(l);
+    found.slice(0,6).forEach(a=>{const d=parseKey(a.date);const b=document.createElement('button');b.type='button';b.className='dl c';
+      b.innerHTML='<b></b><span></span>';b.querySelector('b').textContent=screenName(clientOf(a));
+      b.querySelector('span').textContent=`${DOW[(d.getDay()+6)%7]} ${d.getDate()} ${MON[d.getMonth()].slice(0,3)} · ${t12(toMin(a.start))}`;
+      b.onclick=()=>{goWeek(mondayOf(d));openSession(a.id);};cs.append(b);});
+  }
+  const box=$('#deadlines');box.replaceChildren();
+  const list=[...db.tasks.values()].filter(t=>t.deadline&&!t.done&&isDated(t.date)&&parseKey(t.date)>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+  const lbl=document.createElement('span');lbl.className='lbl';lbl.textContent='Coming up';box.append(lbl);
+  if(!list.length){const e=document.createElement('span');e.className='empty';e.textContent='No deadlines. Start a task with ! (for example “!Insurance renewal”) and it shows here with a countdown.';box.append(e);return;}
+  list.forEach(t=>{
+    const d=parseKey(t.date),n=Math.round((d-today)/864e5);
+    const b=document.createElement('button');b.className='dl';b.type='button';b.innerHTML='<b></b><span></span>';
+    b.querySelector('b').textContent=t.text;
+    b.querySelector('span').textContent=`${DOW[(d.getDay()+6)%7]} ${d.getDate()} ${MON[d.getMonth()].slice(0,3)} · ${n===0?'today':n===1?'tomorrow':'in '+n+' days'}`;
+    b.onclick=()=>{goWeek(mondayOf(d));openTask(t.id);};box.append(b);
+  });
+}
+function goWeek(ws){weekStart=ws;render();loadEvents();}
+
+/* ---------- board interactions ---------- */
+function addTask(key,raw){
+  let text=raw.trim();if(!text)return;let deadline=false;
+  if(text.startsWith('!')){deadline=true;text=text.slice(1).trim();}
+  if(!text)return;
+  const ts=tasksFor(key);
+  const t={id:newId('t'),text,date:key,done:false,deadline,color:'',notes:'',order:ts.length?(ts[ts.length-1].order??ts.length)+1:0,created:Date.now()};
+  db.put('tasks',t);sync('tasks',t.id);
+}
+const wrap=document.querySelector('.wrap');
+wrap.addEventListener('keydown',e=>{
+  const t=e.target;if(!t.classList.contains('add'))return;
+  if(e.key==='Enter'){e.preventDefault();const v=t.value;t.value='';addTask(t.dataset.key,v);}
+  else if(e.key==='Escape'){t.value='';t.blur();}
+});
+wrap.addEventListener('click',e=>{
+  if(e.target.classList.contains('addsess')){openSession(null,{date:e.target.closest('.day').dataset.key});return;}
+  const li=e.target.closest('li');if(!li||li.classList.contains('event'))return;
+  const kind=li.dataset.kind;
+  if(e.target.classList.contains('check')){
+    if(kind==='tasks'){const t=db.tasks.get(li.dataset.id);if(t){db.put('tasks',{...t,done:!t.done});sync('tasks',t.id);}}
+    if(kind==='appts'){const a=db.appts.get(li.dataset.id);if(a){db.put('appts',{...a,status:a.status==='completed'?'scheduled':'completed'});sync('appts',a.id);}}
+    return;
+  }
+  if(kind==='tasks'){openTask(li.dataset.id);return;}
+  if(kind==='appts'){openSession(li.dataset.id);return;}
+  if(li.classList.contains('blank')||li.classList.contains('addrow'))li.closest('.day').querySelector('input.add').focus();
+});
+let drag=null;
+wrap.addEventListener('dragstart',e=>{const li=e.target.closest&&e.target.closest('li.task,li.sess');if(!li)return;drag={id:li.dataset.id,kind:li.dataset.kind};li.classList.add('dragging');try{e.dataTransfer.setData('text/plain',drag.id);e.dataTransfer.effectAllowed='move';}catch(_){}});
+wrap.addEventListener('dragend',()=>{drag=null;document.querySelectorAll('.dragging,.drop').forEach(x=>x.classList.remove('dragging','drop'));});
+wrap.addEventListener('dragover',e=>{const sec=e.target.closest('.day');if(!sec||!drag)return;if(drag.kind==='appts'&&!isDated(sec.dataset.key))return;e.preventDefault();document.querySelectorAll('.drop').forEach(x=>x!==sec&&x.classList.remove('drop'));sec.classList.add('drop');});
+wrap.addEventListener('drop',e=>{
+  const sec=e.target.closest('.day');if(!sec||!drag)return;e.preventDefault();
+  const key=sec.dataset.key,{id,kind}=drag;drag=null;
+  if(kind==='appts'){
+    const a=db.appts.get(id);if(!a||!isDated(key)||a.date===key){render();return;}
+    db.put('appts',{...a,date:key});sync('appts',id);
+    const c=conflictsFor(key,a.start,a.dur,[id]).filter(x=>x.level==='conflict');
+    if(c.length) toast(`Moved, but it overlaps ${c[0].what} (${c[0].when})`);
+    return;
+  }
+  const moving=db.tasks.get(id);if(!moving)return;
+  const rows=[...sec.querySelectorAll('li.task')].filter(li=>li.dataset.id!==id);
+  let idx=rows.findIndex(li=>{const r=li.getBoundingClientRect();return e.clientY<r.top+r.height/2;});if(idx<0)idx=rows.length;
+  const list=tasksFor(key).filter(t=>t.id!==id);list.splice(idx,0,{...moving,date:key});
+  list.forEach((t,i)=>{const old=db.tasks.get(t.id);if(!old||old.order!==i||old.date!==key)db.put('tasks',{...t,date:key,order:i},true);});
+  render();if(moving.date!==key)sync('tasks',id);
+});
+const anyOpen=()=>[...document.querySelectorAll('.overlay')].some(o=>!o.hidden);
+document.addEventListener('keydown',e=>{
+  if(e.target.closest('input,textarea,select')||anyOpen())return;
+  if(e.key==='ArrowLeft')goWeek(addDays(weekStart,-7));
+  if(e.key==='ArrowRight')goWeek(addDays(weekStart,7));
+});
+$('#prev').onclick=()=>goWeek(addDays(weekStart,-7));
+$('#next').onclick=()=>goWeek(addDays(weekStart,7));
+$('#todayBtn').onclick=()=>goWeek(mondayOf(new Date()));
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(G.token&&!hasToken()){G.token=null;setG('expired');}if(hasToken())loadEvents();else refreshToken();});
+
+/* ---------- session editor ---------- */
+let sEdit=null,sAck=false,sWarnSeq=0;
+function fillClientSelect(selId){
+  const sel=$('#s-client-sel');sel.replaceChildren();
+  const list=[...db.clients.values()].filter(c=>!c.archived||c.id===selId).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!list.length&&!selId){const o=new Option('Choose a client…','');o.disabled=true;sel.append(o);}
+  list.forEach(c=>sel.append(new Option(opt.privacy?(c.initials||initialsOf(c.name)):c.name,c.id)));
+  sel.append(new Option('＋ New client…','__new'));
+  sel.value=selId||(list[0]?list[0].id:'__new');
+  $('#s-newclient').hidden=sel.value!=='__new';
+}
+function openSession(id,preset){
+  closeAll();
+  const a=id?db.appts.get(id):null;
+  sEdit=a?a.id:null;sAck=false;
+  const c=a?clientOf(a):(preset&&preset.clientId?db.clients.get(preset.clientId):null);
+  $('#s-title').textContent=a?'Session':'New session';
+  fillClientSelect(a?a.clientId:(preset&&preset.clientId)||'');
+  $('#s-newclient').value='';
+  $('#s-date').value=a?a.date:(preset&&preset.date)||keyOf(new Date());
+  $('#s-start').value=a?a.start:(preset&&preset.start)||suggestStart($('#s-date').value);
+  $('#s-dur').value=a?a.dur:((c&&c.dur)||opt.dur);
+  $('#s-type').value=a?a.type||'in-person':'in-person';
+  $('#s-status').value=a?a.status||'scheduled':'scheduled';
+  $('#s-repeat').checked=false;$('#s-repeat-wrap').hidden=!!a;
+  $('#s-notes').value=a?a.notes||'':'';
+  $('#s-delete').hidden=!a;
+  $('#s-gnote').textContent=opt.sync==='off'?'Sending to Google Calendar is turned off in Settings.':(hasToken()?`Google Calendar will show: “${sessionLabelPreview()}”`:'Connect Google to check your calendar for conflicts and add this session to it.');
+  $('#sessOv').hidden=false;updateWarn();
+  setTimeout(()=>$('#s-client-sel').focus(),0);
+}
+function sessionLabelPreview(){
+  const cid=$('#s-client-sel').value;
+  const fake={clientId:cid,type:$('#s-type').value};
+  if(cid==='__new'){const n=$('#s-newclient').value;return 'Session'+(opt.label==='initials'&&n?' · '+initialsOf(n):'')+(fake.type==='telehealth'?' (telehealth)':'');}
+  return sessionLabel(fake);
+}
+function suggestStart(dateKey){  // first free slot from 9am, on the hour
+  const dur=opt.dur;
+  for(let m=9*60;m<=19*60;m+=60){if(!conflictsFor(dateKey,fromMin(m),dur,[]).some(x=>x.level==='conflict'))return fromMin(m);}
+  return '09:00';
+}
+function sessionDates(){
+  const d0=$('#s-date').value;if(!isDated(d0))return [];
+  if(sEdit||!$('#s-repeat').checked) return [d0];
+  const n=Math.min(52,Math.max(2,+$('#s-weeks').value||2));
+  return Array.from({length:n},(_,i)=>keyOf(addDays(parseKey(d0),7*i)));
+}
+async function updateWarn(){
+  sAck=false;$('#s-save').textContent='Save';$('#s-save').className='btn primary';
+  const seq=++sWarnSeq;
+  const dates=sessionDates(),start=$('#s-start').value,dur=+$('#s-dur').value||0;
+  const box=$('#s-warn');
+  if(!dates.length||!start||!dur){box.replaceChildren();return;}
+  const missing=dates.filter(k=>!(k in events)&&!(k in dayCache));
+  if(missing.length&&hasToken()){box.innerHTML='<p class="note">Checking your calendar…</p>';await loadRange(missing[0],missing[missing.length-1]);if(seq!==sWarnSeq)return;}
+  const conf=[],tight=[];
+  dates.forEach(k=>conflictsFor(k,start,dur,sEdit?[sEdit]:[]).forEach(x=>(x.level==='conflict'?conf:tight).push({...x,k})));
+  box.replaceChildren();
+  const fmtD=k=>{const d=parseKey(k);return `${DOW[(d.getDay()+6)%7]} ${d.getDate()} ${MON[d.getMonth()].slice(0,3)}`;};
+  const mk=(cls,head,list)=>{const w=document.createElement('div');w.className='warnbox '+cls;const b=document.createElement('b');b.textContent=head;w.append(b);
+    const ul=document.createElement('ul');list.slice(0,8).forEach(x=>{const li=document.createElement('li');li.textContent=`${dates.length>1?fmtD(x.k)+': ':''}${x.what}, ${x.when}${x.level==='tight'?` (${Math.max(0,x.gap)} min gap)`:''}`;ul.append(li);});
+    if(list.length>8){const li=document.createElement('li');li.textContent=`…and ${list.length-8} more`;ul.append(li);}w.append(ul);box.append(w);};
+  if(conf.length) mk('c',`Overlaps ${conf.length===1?'1 thing':conf.length+' things'}`,conf);
+  if(tight.length) mk('k',`Less than ${opt.buffer} min between sessions`,tight);
+  if(!conf.length&&!tight.length&&(hasToken()||db.appts.size)){const p=document.createElement('p');p.className='note';p.textContent=hasToken()?'No conflicts with your sessions or Google Calendar.':'No conflicts with your other sessions. Connect Google to check your calendar too.';box.append(p);}
+}
+['#s-date','#s-start','#s-dur','#s-repeat','#s-weeks'].forEach(s=>$(s).addEventListener('input',updateWarn));
+$('#s-client-sel').onchange=e=>{
+  $('#s-newclient').hidden=e.target.value!=='__new';
+  if(e.target.value==='__new')$('#s-newclient').focus();
+  else if(!sEdit){const c=db.clients.get(e.target.value);if(c&&c.dur){$('#s-dur').value=c.dur;updateWarn();}}
+  $('#s-gnote').textContent=hasToken()&&opt.sync!=='off'?`Google Calendar will show: “${sessionLabelPreview()}”`:$('#s-gnote').textContent;
+};
+$('#s-type').onchange=()=>{if(hasToken()&&opt.sync!=='off')$('#s-gnote').textContent=`Google Calendar will show: “${sessionLabelPreview()}”`;};
+$('#sessForm').onsubmit=async e=>{
+  e.preventDefault();
+  let cid=$('#s-client-sel').value;
+  if(cid==='__new'){
+    const name=$('#s-newclient').value.trim();if(!name){$('#s-newclient').focus();toast('Enter the new client’s name');return;}
+    const c={id:newId('c'),name,initials:initialsOf(name),code:'',color:'',notes:'',dur:+$('#s-dur').value||opt.dur,archived:false,created:Date.now()};
+    db.put('clients',c,true);cid=c.id;fillClientSelect(cid);
+  }
+  if(!cid){toast('Choose a client');return;}
+  const dates=sessionDates();if(!dates.length)return;
+  const start=$('#s-start').value,dur=+$('#s-dur').value||opt.dur;
+  const hasConf=dates.some(k=>conflictsFor(k,start,dur,sEdit?[sEdit]:[]).some(x=>x.level==='conflict'));
+  if(hasConf&&!sAck){sAck=true;$('#s-save').textContent='Save anyway';$('#s-save').className='btn warn';$('#s-warn').scrollIntoView({block:'nearest'});return;}
+  const base={clientId:cid,start,dur,type:$('#s-type').value,status:$('#s-status').value,notes:$('#s-notes').value};
+  if(sEdit){
+    const a=db.appts.get(sEdit);const na={...a,...base,date:dates[0]};
+    db.put('appts',na);sync('appts',na.id);
+  }else{
+    const series=dates.length>1?newId('r'):null;
+    dates.forEach((k,i)=>{const a={id:newId('a'),...base,notes:i===0?base.notes:'',date:k,seriesId:series,created:Date.now()};db.put('appts',a,true);sync('appts',a.id);});
+    render();if(dates.length>1)toast(`Booked ${dates.length} weekly sessions`);
+  }
+  closeAll();
+};
+$('#s-cancel').onclick=closeAll;
+$('#s-delete').onclick=()=>{
+  const a=sEdit&&db.appts.get(sEdit);if(!a){closeAll();return;}
+  if($('#s-delete').dataset.armed!=='1'){$('#s-delete').dataset.armed='1';$('#s-delete').textContent='Click again to delete';setTimeout(()=>{$('#s-delete').dataset.armed='';$('#s-delete').textContent='Delete';},3000);return;}
+  $('#s-delete').dataset.armed='';$('#s-delete').textContent='Delete';
+  unsync(a);db.remove('appts',a.id);toast('Session deleted. To keep a record, set its status to Cancelled instead.');closeAll();
+};
+
+/* ---------- task editor ---------- */
+let tEdit=null,tColor='';
+function setTColor(c){tColor=c;document.querySelectorAll('#t-swatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.c===c)));}
+function openTask(id){
+  closeAll();const t=db.tasks.get(id);if(!t)return;tEdit=id;
+  $('#t-text').value=t.text;const dated=isDated(t.date);
+  $('#t-someday').checked=!dated;$('#t-date').value=dated?t.date:'';$('#t-date').disabled=!dated;
+  $('#t-deadline').checked=!!t.deadline;$('#t-notes').value=t.notes||'';setTColor(t.color||'');
+  $('#t-gnote').textContent=t.done?'Checked-off tasks are removed from Google Calendar.':(opt.sync==='all'?(dated?'This task is on your “Practice” calendar and moves with it.':'Give it a date to add it to Google Calendar.'):'Tasks aren’t sent to Google Calendar (see Settings).');
+  $('#taskOv').hidden=false;$('#t-text').focus();
+}
+$('#t-swatches').onclick=e=>{const b=e.target.closest('.sw');if(b)setTColor(b.dataset.c);};
+$('#t-someday').onchange=e=>{$('#t-date').disabled=e.target.checked;if(!e.target.checked&&!$('#t-date').value)$('#t-date').value=keyOf(new Date());};
+$('#taskForm').onsubmit=e=>{
+  e.preventDefault();const t=db.tasks.get(tEdit);if(!t){closeAll();return;}
+  let date=t.date;
+  if($('#t-someday').checked){if(isDated(date))date='someday';}else if($('#t-date').value)date=$('#t-date').value;
+  const moved=date!==t.date;
+  const nt={...t,text:$('#t-text').value.trim()||t.text,date,deadline:$('#t-deadline').checked,color:tColor,notes:$('#t-notes').value,order:moved?Date.now():t.order};
+  db.put('tasks',nt);closeAll();sync('tasks',nt.id);
+};
+$('#t-cancel').onclick=closeAll;
+$('#t-delete').onclick=()=>{const t=tEdit&&db.tasks.get(tEdit);if(t){unsync(t);db.remove('tasks',t.id);toast('Task deleted');}closeAll();};
+
+/* ---------- clients ---------- */
+let cEdit=null,cColor='';
+function setCColor(c){cColor=c;document.querySelectorAll('#c-swatches .sw').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.c===c)));}
+function openClients(){closeAll();$('#c-listview').hidden=false;$('#c-detail').hidden=true;$('#c-search').value='';renderClientList();$('#clientsOv').hidden=false;$('#c-search').focus();}
+function renderClientList(){
+  const q=$('#c-search').value.trim().toLowerCase(),arch=$('#c-showarch').checked,today=keyOf(new Date());
+  const ul=$('#c-list');ul.replaceChildren();
+  const list=[...db.clients.values()].filter(c=>(arch||!c.archived)&&(!q||c.name.toLowerCase().includes(q)||(c.code||'').toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!list.length){const li=document.createElement('li');li.style.cursor='default';li.innerHTML='<span class="note">No clients yet. Add one here, or choose “New client” when booking a session.</span>';ul.append(li);return;}
+  list.forEach(c=>{
+    const as=[...db.appts.values()].filter(a=>a.clientId===c.id);
+    const nextA=as.filter(a=>a.date>=today&&active(a)).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start))[0];
+    const seen=as.filter(a=>a.status==='completed').length;
+    const li=document.createElement('li');li.className=c.archived?'archived':'';li.dataset.id=c.id;
+    if(COLOR_CSS[c.color])li.style.setProperty('--cc',COLOR_CSS[c.color]);
+    li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="meta"></span>';
+    li.querySelector('.nm').textContent=c.name+(c.code?` · ${c.code}`:'');
+    let meta=`${seen} completed`;if(nextA){const d=parseKey(nextA.date);meta+=` · next ${DOW[(d.getDay()+6)%7]} ${d.getDate()} ${MON[d.getMonth()].slice(0,3)}, ${t12(toMin(nextA.start))}`;}
+    li.querySelector('.meta').textContent=meta;
+    ul.append(li);
+  });
+}
+$('#c-search').oninput=renderClientList;$('#c-showarch').onchange=renderClientList;
+$('#c-list').onclick=e=>{const li=e.target.closest('li[data-id]');if(li)openClient(li.dataset.id);};
+$('#c-add').onclick=()=>openClient(null);
+$('#c-close').onclick=closeAll;
+function openClient(id){
+  const c=id?db.clients.get(id):{id:null,name:'',initials:'',code:'',color:'',notes:'',dur:'',archived:false};
+  cEdit=id;
+  $('#c-title').textContent=id?c.name:'New client';
+  $('#c-name').value=c.name;$('#c-initials').value=c.initials||'';$('#c-code').value=c.code||'';$('#c-dur').value=c.dur||'';
+  $('#c-notes').value=c.notes||'';$('#c-archived').checked=!!c.archived;setCColor(c.color||'');
+  $('#c-delete').hidden=!id;$('#c-book').hidden=!id;
+  const hist=$('#c-hist');hist.replaceChildren();
+  const as=id?[...db.appts.values()].filter(a=>a.clientId===id).sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start)):[];
+  $('#c-histlbl').textContent=`Sessions (${as.length})`;
+  if(!as.length){const li=document.createElement('li');li.style.cursor='default';li.innerHTML='<span class="note" style="grid-column:1/-1">No sessions yet.</span>';hist.append(li);}
+  as.forEach(a=>{const d=parseKey(a.date);const li=document.createElement('li');li.dataset.id=a.id;
+    li.innerHTML='<span></span><span class="st"></span><span class="pv"></span>';
+    li.children[0].textContent=`${DOW[(d.getDay()+6)%7]} ${d.getDate()} ${MON[d.getMonth()].slice(0,3)} ${d.getFullYear()!==new Date().getFullYear()?d.getFullYear():''} ${t12(toMin(a.start))}`;
+    li.children[1].textContent=STATUS[a.status]||'Scheduled';li.children[2].textContent=a.notes||'';hist.append(li);});
+  $('#c-listview').hidden=true;$('#c-detail').hidden=false;$('#clientsOv').hidden=false;$('#c-name').focus();
+}
+$('#c-name').addEventListener('input',e=>{if(!cEdit||!$('#c-initials').dataset.touched)$('#c-initials').value=initialsOf(e.target.value);});
+$('#c-initials').addEventListener('input',e=>{e.target.dataset.touched='1';});
+$('#c-swatches').onclick=e=>{const b=e.target.closest('.sw');if(b)setCColor(b.dataset.c);};
+$('#c-hist').onclick=e=>{const li=e.target.closest('li[data-id]');if(li)openSession(li.dataset.id);};
+$('#c-back').onclick=()=>{$('#c-initials').dataset.touched='';$('#c-listview').hidden=false;$('#c-detail').hidden=true;renderClientList();};
+$('#c-book').onclick=()=>{if(cEdit)openSession(null,{clientId:cEdit,date:keyOf(new Date())});};
+$('#c-detail').onsubmit=e=>{
+  e.preventDefault();const name=$('#c-name').value.trim();if(!name)return;
+  const old=cEdit?db.clients.get(cEdit):null;
+  const c={...(old||{id:newId('c'),created:Date.now()}),name,initials:$('#c-initials').value.trim()||initialsOf(name),code:$('#c-code').value.trim(),
+    color:cColor,notes:$('#c-notes').value,dur:+$('#c-dur').value||'',archived:$('#c-archived').checked};
+  db.put('clients',c);
+  // calendar labels depend on initials/code/color: update this client's upcoming sessions
+  if(old&&(old.initials!==c.initials||old.code!==c.code||old.color!==c.color)){
+    const today=keyOf(new Date());[...db.appts.values()].filter(a=>a.clientId===c.id&&a.date>=today&&a.gEventId).forEach(a=>sync('appts',a.id));
+  }
+  $('#c-initials').dataset.touched='';toast('Client saved');
+  cEdit=c.id;$('#c-listview').hidden=false;$('#c-detail').hidden=true;renderClientList();
+};
+$('#c-delete').onclick=()=>{
+  const c=cEdit&&db.clients.get(cEdit);if(!c)return;
+  const n=[...db.appts.values()].filter(a=>a.clientId===c.id).length;
+  if(n){toast(`${c.name} has ${n} session${n>1?'s':''} on record. Archive them instead to keep the history.`);return;}
+  if($('#c-delete').dataset.armed!=='1'){$('#c-delete').dataset.armed='1';$('#c-delete').textContent='Click again to delete';setTimeout(()=>{$('#c-delete').dataset.armed='';$('#c-delete').textContent='Delete client';},3000);return;}
+  $('#c-delete').dataset.armed='';$('#c-delete').textContent='Delete client';
+  db.remove('clients',c.id);toast('Client deleted');$('#c-back').onclick();
+};
+
+/* ---------- settings ---------- */
+function openSettings(){
+  closeAll();
+  $('#o-dur').value=opt.dur;$('#o-buffer').value=opt.buffer;$('#o-privacy').checked=opt.privacy;
+  $('#s-client').value=clientId();$('#o-sync').value=opt.sync;$('#o-label').value=opt.label;
+  $('#originHint').textContent=location.protocol==='file:'?'(the https:// or http://localhost address you host it at)':location.origin;
+  $('#settingsOv').hidden=false;
+}
+$('#settingsBtn').onclick=openSettings;$('#clientsBtn').onclick=openClients;
+$('#o-close').onclick=closeAll;
+$('#o-dur').onchange=e=>{opt.dur=Math.max(5,+e.target.value||50);saveOpt();};
+$('#o-buffer').onchange=e=>{opt.buffer=Math.max(0,+e.target.value||0);saveOpt();render();};
+$('#o-privacy').onchange=e=>{opt.privacy=e.target.checked;saveOpt();render();};
+$('#s-client').onchange=e=>{ls.set('clientId',e.target.value.trim());G.client=null;if(!hasToken())setG(idleState());};
+$('#o-connect').onclick=()=>{ls.set('clientId',$('#s-client').value.trim());G.client=null;connect(true);};
+$('#o-disconnect').onclick=()=>{
+  if(G.token&&window.google&&google.accounts&&google.accounts.oauth2)google.accounts.oauth2.revoke(G.token,()=>{});
+  G.token=null;clearTimeout(G.timer);ls.set('gConnected','');events={};render();setG(clientId()?'off':'setup');toast('Disconnected from Google');
+};
+$('#o-sync').onchange=e=>{opt.sync=e.target.value;saveOpt();const n=resyncAll();toast(n?`Updating ${n} item${n>1?'s':''} in Google Calendar`:'Setting saved');};
+$('#o-label').onchange=e=>{opt.label=e.target.value;saveOpt();const n=resyncAll();toast(n?`Relabeling ${n} item${n>1?'s':''} in Google Calendar`:'Setting saved');};
+$('#o-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify({app:'practice-planner',version:1,exported:new Date().toISOString(),tasks:[...db.tasks.values()],appts:[...db.appts.values()],clients:[...db.clients.values()]},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`practice-backup-${keyOf(new Date())}.json`;
+  document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+};
+$('#o-import').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());let n=0;
+    for(const k of ['tasks','appts','clients']) (data[k]||[]).forEach(x=>{if(x&&x.id){db[k].set(x.id,x);n++;}});
+    if(!n)throw new Error('empty');
+    ['tasks','appts','clients'].forEach(k=>db.save(k));render();toast(`Imported ${n} items`);
+  }catch(err){toast('That file isn’t a Practice Planner backup.');}
+  e.target.value='';
+};
+
+/* ---------- overlays ---------- */
+function closeAll(){document.querySelectorAll('.overlay').forEach(o=>o.hidden=true);sEdit=null;tEdit=null;}
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('mousedown',e=>{if(e.target===o)closeAll();});
+  o.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll();});
+});
+let toastTimer;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,3600);}
+
+/* ---------- boot ---------- */
+db.load();render();
+setG(clientId()?(ls.get('gConnected','')?'expired':'off'):'setup');
+window.addEventListener('load',()=>{if(clientId()&&ls.get('gConnected','')&&location.protocol!=='file:'&&initClient())connect(false);});
+</script>
+</body>
+</html>
